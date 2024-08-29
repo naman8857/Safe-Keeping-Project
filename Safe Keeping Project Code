@@ -1,0 +1,602 @@
+
+Conversation opened. 1 read message.
+
+Skip to content
+Using Memorial University of Newfoundland Mail with screen readers
+safe keeping project 
+
+5 of 39
+Fwd: 1020 project for demo
+External
+Inbox
+
+Kyle Weber <kweber210@gmail.com>
+Attachments
+Wed, Jul 31, 7:01 PM
+to me
+
+
+---------- Forwarded message ---------
+From: Kyle Weber <kweber210@gmail.com>
+Date: Wed, Jul 31, 2024, 8:57 a.m.
+Subject: 1020 project
+To: Kyle Weber <kweber210@gmail.com>
+
+
+
+
+ One attachment
+  •  Scanned by Gmail
+safe keeping
+#1020 Project : Safe Keeping
+#A programming project by Naman Arora and Kyle Weber
+
+
+##Modules
+
+from engi1020.arduino.api import *
+import time
+from random import *
+import sys
+
+
+##This is clearing the OLED and RGB LCD when we start the program
+oled_clear()
+rgb_lcd_clear()
+
+##Functions
+
+##Verified that the range sets correctly based on decision##
+def difficulty(difficulty): ##This function will set the range for the lock levels based on difficulty level
+    
+    if difficulty == 0: #Easy
+        lvl_1_low  = randrange(0,523)
+        lvl_1_high = lvl_1_low + 500
+        lvl_2_low  = randrange(0,623)
+        lvl_2_high = lvl_2_low + 400
+        lvl_3_low  = randrange(0,723)
+        lvl_3_high = lvl_3_low + 300
+        lvl_4_low  = randrange(0,823)
+        lvl_4_high = lvl_4_low + 200
+    elif difficulty == 1: #Medium
+        lvl_1_low  = randrange(0,623)
+        lvl_1_high = lvl_1_low + 400
+        lvl_2_low  = randrange(0,723)
+        lvl_2_high = lvl_2_low + 300
+        lvl_3_low  = randrange(0,823)
+        lvl_3_high = lvl_3_low + 200
+        lvl_4_low  = randrange(0,923)
+        lvl_4_high = lvl_4_low + 100
+    else: #Hard
+        lvl_1_low  = randrange(0,723)
+        lvl_1_high = lvl_1_low + 300
+        lvl_2_low  = randrange(0,823)
+        lvl_2_high = lvl_2_low + 200
+        lvl_3_low  = randrange(0,923)
+        lvl_3_high = lvl_3_low + 100
+        lvl_4_low  = randrange(0,973)
+        lvl_4_high = lvl_4_low + 50
+    return(lvl_1_low,lvl_1_high,lvl_2_low,lvl_2_high,lvl_3_low,lvl_3_high,lvl_4_low,lvl_4_high)
+
+
+def lock_disp(level): ##Definition for the RGB screen on the different levels. This doesn't need to return anything.
+    
+    if level == 0:
+        rgb_lcd_clear()
+        rgb_lcd_print("#    #    #    #",0,0)
+    elif level == 2:
+        rgb_lcd_clear()
+        rgb_lcd_print("     #    #    #",0,0)
+        rgb_lcd_print("#               ",1,0)
+    elif level == 4:
+        rgb_lcd_clear()
+        rgb_lcd_print("          #    #",0,0)
+        rgb_lcd_print("#    #          ",1,0)
+    elif level == 6:
+        rgb_lcd_clear()
+        rgb_lcd_print("               #",0,0)
+        rgb_lcd_print("#    #    #     ",1,0)
+    else:
+        rgb_lcd_clear()
+        rgb_lcd_print("                ",0,0)
+        rgb_lcd_print("#    #    #    #",1,0)
+
+
+##Verified that the proper result is returned##
+def level_check(level,pin): ##This function will check the pin and lock level: it will then return true or false depending on whether or not the pin is in the correct range.
+    
+#     print(level) #Testing
+#     print(lock_ranges[level], lock_ranges[level+1]) #Testing    
+    if pin >= lock_ranges[level] and pin <= lock_ranges[level+1]:
+        return True
+    else:
+        return False
+
+
+##Verified that the frequency is working##
+def freq_get(low,high,pos): ##Function for selecting the buzzer frequency based on lock position.    
+
+    spot = ((high-low)/2)+low  ##This sets the middle of the lock range as the reference for setting the frequency.
+    
+    if abs(pos-spot) <= 10:
+        return 325
+    elif abs(pos-spot) > 10 and abs(pos-spot) <= 20:
+        return 320
+    elif abs(pos-spot) > 20 and abs(pos-spot) <= 30:
+        return 315
+    elif abs(pos-spot) > 30 and abs(pos-spot) <= 40:
+        return 310
+    elif abs(pos-spot) > 40 and abs(pos-spot) <= 50:
+        return 305
+    else:
+        return 300
+
+
+def timer(max_time, time_difference): ##This function will respond to how much time has passed since starting
+    
+    flash_time = 0
+    interval_time = (time_difference)/max_time
+    
+    if interval_time <= .2:
+        flash_time = 2        
+    if interval_time > .2 and interval_time <= .4:
+        flash_time = 1
+    if interval_time > .4 and interval_time <= .6:
+        flash_time = .5
+    if interval_time > .6 and interval_time <= .8:
+        flash_time = .1
+    if interval_time > .8 and interval_time <= 1:
+        flash_time = .05
+        
+    return(flash_time)    
+        
+        
+
+#Define initial conditions
+chances = 2  #The user can only select the wrong position twice.
+level = 0    #This sets the initial level to 0 and will increase as the locks progress.
+mode = 0  #1 for security and 0 will be for game. This is something that will hopefully be implemented before the end.
+diff = 1
+time_allowed = 30
+name = ""
+cont = 1 #This determines whether the main menu or the game will go ahead.
+
+#Define the initial global lists
+
+lock_ranges = []
+lb = {'Name': ['Diff', 'Time']}
+
+while True:
+    ##Part 1: Collect user information.
+    
+    while cont == 1:
+
+        while digital_read(6) == False:
+            menu_val = (analog_read(0)//204)
+            print(menu_val)        
+            rgb_lcd_print("Menu            ",0,0)    
+            if menu_val==0:
+                selection = "Mode            "
+            if menu_val==1:
+                selection = "Time Allowed    "
+            if menu_val==2:
+                selection = "Chances         "
+            if menu_val == 3:
+                selection = "Current Settings         "
+                
+            if menu_val == 4:
+                selection = "Leaderboard          "
+            if menu_val == 5:
+                selection = "Exit               "
+            rgb_lcd_print(selection,1,0)
+        time.sleep(1)    
+            
+        rgb_lcd_clear()
+        if selection == "Mode            ":
+            while digital_read(6) == False:
+                menu_val = (analog_read(0)//341)
+                print(menu_val)
+                rgb_lcd_print("Mode       ",0,0)    
+                if menu_val == 0:
+                    rgb_lcd_print("Game            ",1,0)               
+                if menu_val == 1:
+                    rgb_lcd_print("Security            ",1,0)
+                if menu_val == 2:
+                    rgb_lcd_print("Exit               ",1,0)
+                    
+            if menu_val == 0:
+                mode = 0
+            if menu_val == 1:
+                mode = 1
+            if menu_val == 2:
+                pass
+
+        rgb_lcd_clear()
+        if selection == "Time Allowed    ":
+            while digital_read(6) == False:
+                
+                rgb_lcd_print("Time Allowed    ",0,0)
+                menu_val = (analog_read(0)//127)
+
+                if menu_val==0:
+                    rgb_lcd_print("25s            ",1,0)       
+                elif menu_val==1:
+                    rgb_lcd_print("30s            ",1,0)
+                elif menu_val==2:
+                    rgb_lcd_print("35s            ",1,0)
+                elif menu_val==3:
+                    rgb_lcd_print("40s            ",1,0)
+                elif menu_val==4:
+                    rgb_lcd_print("45s            ",1,0)
+                elif menu_val==5:
+                    rgb_lcd_print("50s            ",1,0)
+                elif menu_val==6:
+                    rgb_lcd_print("55s            ",1,0)
+                elif menu_val==7:
+                    rgb_lcd_print("60s            ",1,0)                
+                else:
+                    rgb_lcd_print("Exit               ",1,0)
+                    
+            if menu_val == 0:
+                time_allowed = 25 
+            elif menu_val == 1:
+                time_allowed = 30            
+            elif menu_val == 2:
+                time_allowed = 35            
+            elif menu_val == 3:
+                time_allowed = 40            
+            elif menu_val == 4:
+                time_allowed = 45            
+            elif menu_val == 5:
+                time_allowed = 50            
+            elif menu_val == 6:            
+                time_allowed = 55
+            elif menu_val == 7:
+                time_allowed = 60
+            else:
+                pass
+
+
+        rgb_lcd_clear()
+        if selection == "Chances         ":
+            while digital_read(6) == False:
+                
+                rgb_lcd_print("Chances         ",0,0)    
+                menu_val = (analog_read(0)//255)
+
+                if menu_val == 0:
+                    rgb_lcd_print("1                 ",1,0)          
+                elif menu_val == 1:
+                    rgb_lcd_print("2                 ",1,0)
+                elif menu_val == 2:
+                    rgb_lcd_print("3                 ",1,0)
+                elif menu_val == 3:
+                    rgb_lcd_print("4            ",1,0)
+                else:
+                    rgb_lcd_print("Exit               ",1,0)
+                    
+            if menu_val == 0:
+                    chances = 1  
+            elif menu_val == 1:
+                    chances = 2            
+            elif menu_val == 2:
+                    chances = 3             
+            elif menu_val == 3:
+                    chances = 4           
+            else:
+                chance_reset = chances
+                pass
+            
+            
+        rgb_lcd_clear()
+        if selection == "Current Settings         ":
+            while digital_read(6) == False:
+                
+                rgb_lcd_print("Current Settings         ",0,0)
+                rgb_lcd_print(f"M={mode}, T={time_allowed}, C={chances}          ",1,0)
+                
+        rgb_lcd_clear()      
+        if selection == "Leaderboard          ":
+
+#  z           leaderboard = list(lb)
+            while digital_read(6) == False:
+                
+                for i in lb:
+                    rgb_lcd_clear()
+                    rgb_lcd_print(i,0,0)
+                    rgb_lcd_print(f'{lb[i]}',1,0)
+                    time.sleep(1)
+                
+#                 menu_val = int(analog_read(0)//((analog_read(0)+1)/len(leaderboard)))
+#                 menu_val = menu_val-1
+#                 if menu_val < 0:
+#                     menu_val = 0
+#                 rgb_lcd_print(f"{leaderboard[menu_val]}",0,0)
+#                 rgb_lcd_print(f"{lb[leaderboard[menu_val]]}",1,0)             
+                
+                
+        time.sleep(1)
+        if selection == "Exit               ":
+            
+            cont = 0 #This is used when the game is over to select whether or not to go to the main menu or try again
+#             break #Don think we need this
+        
+    while cont == 0:
+
+        while len(name) < 3:
+            while digital_read(6) == False:
+                
+                rgb_lcd_print(f"Name:       {name}",0,0)    
+                menu_val = (analog_read(0)//39)
+                
+                if menu_val==0:
+                    rgb_lcd_print("A                 ",1,0)          
+                elif menu_val==1:
+                    rgb_lcd_print("B                ",1,0)
+                elif menu_val==2:
+                     rgb_lcd_print("C                 ",1,0)
+                elif menu_val==3:
+                     rgb_lcd_print("D               ",1,0)
+                elif menu_val==4:
+                    rgb_lcd_print("E                 ",1,0)          
+                elif menu_val==5:
+                    rgb_lcd_print("F                ",1,0)
+                elif menu_val==6:
+                     rgb_lcd_print("G                 ",1,0)
+                elif menu_val==7:
+                     rgb_lcd_print("H               ",1,0)
+                elif menu_val==8:
+                    rgb_lcd_print("I                  ",1,0)          
+                elif menu_val==9:
+                    rgb_lcd_print("J                  ",1,0)
+                elif menu_val==10:
+                     rgb_lcd_print("K                 ",1,0)
+                elif menu_val==11:
+                     rgb_lcd_print("L               ",1,0)
+                elif menu_val==12:
+                    rgb_lcd_print("M                 ",1,0)          
+                elif menu_val==13:
+                    rgb_lcd_print("N                ",1,0)
+                elif menu_val==14:
+                     rgb_lcd_print("O                 ",1,0)
+                elif menu_val==15:
+                     rgb_lcd_print("P               ",1,0)
+                elif menu_val==16:
+                    rgb_lcd_print("Q                 ",1,0)          
+                elif menu_val==17:
+                    rgb_lcd_print("R                ",1,0)
+                elif menu_val==18:
+                     rgb_lcd_print("S                 ",1,0)
+                elif menu_val==19:
+                     rgb_lcd_print("T               ",1,0)
+                elif menu_val==20:
+                    rgb_lcd_print("U                ",1,0)          
+                elif menu_val==21:
+                    rgb_lcd_print("V                ",1,0)
+                elif menu_val==22:
+                     rgb_lcd_print("W                 ",1,0)
+                elif menu_val==23:
+                     rgb_lcd_print("X               ",1,0)
+                elif menu_val==24:
+                    rgb_lcd_print("Y                 ",1,0)          
+                else:
+                    rgb_lcd_print("Z                ",1,0)
+
+
+            if menu_val==0:
+                name += "A"          
+            elif menu_val==1:
+                name += "B" 
+            elif menu_val==2:
+                name += "C" 
+            elif menu_val==3:
+                name += "D" 
+            elif menu_val==4:
+                name += "E"       
+            elif menu_val==5:
+                name += "F" 
+            elif menu_val==6:
+                name += "G" 
+            elif menu_val==7:
+                name += "H" 
+            elif menu_val==8:
+                name += "I"          
+            elif menu_val==9:
+                name += "J" 
+            elif menu_val==10:
+                name += "K" 
+            elif menu_val==11:
+                name += "L" 
+            elif menu_val==12:
+                name += "M"          
+            elif menu_val==13:
+                name += "N" 
+            elif menu_val==14:
+                name += "O" 
+            elif menu_val==15:
+                name += "P" 
+            elif menu_val==16:
+                name += "Q"           
+            elif menu_val==17:
+                name += "R" 
+            elif menu_val==18:
+                name += "S" 
+            elif menu_val==19:
+                name += "T" 
+            elif menu_val==20:
+                name += "U"          
+            elif menu_val==21:
+                name += "V" 
+            elif menu_val==22:
+                name += "W" 
+            elif menu_val==23:
+                name += "X" 
+            elif menu_val==24:
+                name += "Y"          
+            else:
+                name += "Z" 
+            time.sleep(1)
+        rgb_lcd_print(f"Name:       {name}",0,0)
+        rgb_lcd_print("                 ",1,0)
+        time.sleep(1)
+        while digital_read(6) == False:
+            
+            rgb_lcd_print("Difficulty        ",0,0)    
+            menu_val = (analog_read(0)//255)
+            
+            if menu_val==0:
+                rgb_lcd_print("Easy                 ",1,0)          
+            elif menu_val==1:
+                rgb_lcd_print("Medium                 ",1,0)
+            elif menu_val==2:
+                 rgb_lcd_print("Hard                 ",1,0)
+            else:
+                 rgb_lcd_print("Exit               ",1,0)
+                 
+        if menu_val == 0:
+           diff = 0  
+        elif menu_val == 1:
+            diff = 1            
+        elif menu_val == 2:
+            diff = 2            
+        else:        
+            pass
+        
+        lock_ranges = difficulty(diff)
+
+        print(lock_ranges) #This is used for testing. Turn off after.
+
+        #This is for resetting the chances to the selected value if the player wants to continue
+        chance_reset = chances
+        time.sleep(1)
+        ##This is used to specify when the timer will start counting    
+        while True:
+            
+            if digital_read(6) == False:
+                rgb_lcd_print("Push the button",0,0)
+                rgb_lcd_print("to begin!",1,0)
+            else:
+                rgb_lcd_clear()
+                servo_set_angle(2,45)
+                time_ini = time.time()
+                time_a=time.time()
+                break
+
+        for i in range(0,8,2):
+            
+            oled_clear()
+            lock_disp(level)
+            
+        ##This loop has the buzzer output a freq when the dial is moved a specific amount.
+            while chances > 0:
+                
+                inispot = analog_read(0)
+                finspot = analog_read(0)
+                difference = abs(finspot - inispot)
+                
+                ##This will be for the light flashing at a specific interval based on how close the time is to the allowed time.
+                time_check = time.time()
+                time_diff = time_check - time_ini
+                flash = timer(time_allowed, time_diff)
+                time_b=time.time()
+                
+                if time_b-time_a >= flash:
+                    
+                    digital_write(4,True)
+                    digital_write(4,False)
+                    time_a = time_b
+                                           
+                freq = freq_get(lock_ranges[i],lock_ranges[i+1],finspot)
+                
+                if difference >= 2:
+                    buzzer_note(5,freq,0.05)
+
+                if time_diff >= time_allowed:
+                    break
+                
+                if digital_read(6) == True:
+                
+                    pick = level_check(i,analog_read(0))
+                    
+                    if pick == False:
+                        rgb_lcd_colour(255,0,0)
+                        rgb_lcd_colour(255,255,255)
+                        chances -= 1
+                        oled_print(f"Incorrect, chances:{chances}")
+                        print(pick)    #Just for testing
+                        print(analog_read(0))   #Just for testing
+                    else:
+                        oled_print(f"Correct! Level  completed")                
+                        level += 2
+                        lock_disp(level)
+                        rgb_lcd_colour(0,255,0)
+                        rgb_lcd_colour(255,255,255)
+                        print(pick)  #Just for testing
+                        print(analog_read(0))   #Just for testing
+                        break
+            
+        time_fin = time.time()
+        final_time = int(time_fin-time_ini)
+
+
+        ##This is when the game is either completed successfully or failed
+    
+        if level == 8:
+            rgb_lcd_clear()
+            servo_set_angle(2,90)
+            rgb_lcd_print(f"Good job {name}!",0,0)
+            rgb_lcd_print(f"{final_time}s taken",1,0)
+            score = [diff, final_time]
+            check = lb.keys()
+            if name in check:
+                if lb[name][0] < score[0]:
+                    lb[name] = score
+                elif lb[name][0] == score[0] and lb[name][1] > score[1]:
+                    lb[name] = score                
+                
+            else:
+                lb[name] = score
+                            
+            time.sleep(3)
+
+        else:
+            rgb_lcd_clear()
+            rgb_lcd_print("Locked out!",0,0)
+            time.sleep(.1)
+            
+            while digital_read(6) == False:
+                rgb_lcd_colour(255,0,0)
+                time.sleep(.25)
+                rgb_lcd_colour(255,25,0)
+                time.sleep(0.5)
+            time.sleep(1)
+
+        while digital_read(6) == False:
+            rgb_lcd_colour(255,255,255)
+            rgb_lcd_print("Continue?             ",0,0)    
+            cont_val = (analog_read(0)//341)
+            print(cont_val)
+            if cont_val==0:
+                rgb_lcd_print("New Player                ",1,0)          
+            elif cont_val==1:
+                rgb_lcd_print("Return to Menu                ",1,0)
+            else:
+                rgb_lcd_print("Exit Program                ",1,0)            
+        rgb_lcd_clear()
+        if cont_val == 0:
+            cont = 0
+            name = ""
+            chances = chance_reset
+            level = 0
+            time.sleep(1)
+        elif cont_val == 1:
+            name = ""
+            chances = chance_reset
+            level = 0
+            cont = 1
+            time.sleep(1)
+        else:
+            sys.exit(0)
+
+
+
